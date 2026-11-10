@@ -13,6 +13,12 @@ folia-supported: true
 
 dependencies:
   server:
+    # Network plugins
+    SHNetwork:
+      load: BEFORE
+      required: false
+      join-classpath: false
+
     # Placeholder plugins
     PlaceholderAPI:
       load: BEFORE

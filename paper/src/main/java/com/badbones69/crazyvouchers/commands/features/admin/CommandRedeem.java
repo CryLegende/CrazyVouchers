@@ -9,6 +9,9 @@ import com.badbones69.crazyvouchers.api.objects.VoucherCode;
 import com.badbones69.crazyvouchers.commands.BaseCommand;
 import com.badbones69.crazyvouchers.config.ConfigManager;
 import com.badbones69.crazyvouchers.config.types.ConfigKeys;
+import com.badbones69.crazyvouchers.network.SharedCodes;
+import com.badbones69.crazyvouchers.utils.ScheduleUtils;
+import com.ryderbelserion.fusion.core.api.enums.Level;
 import com.ryderbelserion.fusion.paper.builders.items.ItemBuilder;
 import dev.triumphteam.cmd.core.annotations.ArgName;
 import dev.triumphteam.cmd.core.annotations.Command;
@@ -22,9 +25,11 @@ import org.bukkit.SoundCategory;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.permissions.PermissionDefault;
+import org.jetbrains.annotations.NotNull;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 public class CommandRedeem extends BaseCommand {
 
@@ -100,6 +105,14 @@ public class CommandRedeem extends BaseCommand {
         }
 
         // Has permission to continue.
+        final SharedCodes sharedCodes = this.plugin.getSharedCodes();
+
+        if (sharedCodes != null) {
+            redeemShared(sharedCodes, player, code, placeholders);
+
+            return;
+        }
+
         final FileConfiguration data = FileKeys.users.getConfiguration();
         final String uuid = player.getUniqueId().toString();
         // Checking if the player has used the code before.
@@ -143,25 +156,69 @@ public class CommandRedeem extends BaseCommand {
 
             FileKeys.users.save();
 
-            code.dispatchCommands(player, placeholders);
+            reward(player, code, placeholders);
+        }
+    }
 
-            for (final ItemBuilder itemBuilder : code.getItems()) {
-                Methods.addItem(player, itemBuilder.asItemStack(player));
+    // Same checks as above, but the claim is made in the database shared with the other servers of the network.
+    private void redeemShared(@NotNull final SharedCodes sharedCodes, @NotNull final Player player, @NotNull final VoucherCode code, @NotNull final Map<String, String> placeholders) {
+        final UUID uuid = player.getUniqueId();
+        final String cleanName = code.getStrippedName();
+
+        sharedCodes.claim(uuid, cleanName, code.useLimiter(), code.getLimit()).whenComplete((outcome, exception) -> ScheduleUtils.dispatch(task -> {
+            if (exception != null) {
+                this.fusion.log(Level.ERROR, "Could not claim the code %s for %s: %s", cleanName, player.getName(), exception.getMessage());
+
+                Messages.code_unavailable.sendMessage(player, placeholders);
+
+                return;
             }
 
-            if (code.useSounds()) {
-                for (final Sound sound : code.getSounds()) {
-                    player.playSound(player.getLocation(), sound, SoundCategory.PLAYERS, code.getVolume(), code.getPitch());
+            switch (outcome) {
+                case ALREADY_USED -> Messages.code_used.sendMessage(player, placeholders);
+                case LIMIT_REACHED -> Messages.code_unavailable.sendMessage(player, placeholders);
+                case GRANTED -> {
+                    if (!player.isOnline()) {
+                        sharedCodes.release(uuid, cleanName);
+
+                        return;
+                    }
+
+                    final VoucherRedeemCodeEvent event = new VoucherRedeemCodeEvent(player, code);
+
+                    this.plugin.getServer().getPluginManager().callEvent(event);
+
+                    if (event.isCancelled()) {
+                        sharedCodes.release(uuid, cleanName);
+
+                        return;
+                    }
+
+                    reward(player, code, placeholders);
                 }
             }
+        }));
+    }
 
-            if (code.useFireworks()) Methods.firework(player.getLocation(), code.getFireworkColors());
+    private void reward(@NotNull final Player player, @NotNull final VoucherCode code, @NotNull final Map<String, String> placeholders) {
+        code.dispatchCommands(player, placeholders);
 
-            final String message = code.getMessage();
+        for (final ItemBuilder itemBuilder : code.getItems()) {
+            Methods.addItem(player, itemBuilder.asItemStack(player));
+        }
 
-            if (!message.isEmpty()) {
-                player.sendMessage(this.fusion.asComponent(player, message, placeholders));
+        if (code.useSounds()) {
+            for (final Sound sound : code.getSounds()) {
+                player.playSound(player.getLocation(), sound, SoundCategory.PLAYERS, code.getVolume(), code.getPitch());
             }
+        }
+
+        if (code.useFireworks()) Methods.firework(player.getLocation(), code.getFireworkColors());
+
+        final String message = code.getMessage();
+
+        if (!message.isEmpty()) {
+            player.sendMessage(this.fusion.asComponent(player, message, placeholders));
         }
     }
 }

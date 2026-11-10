@@ -40,6 +40,15 @@ public class ConfigKeys implements SettingsHolder {
         conf.setComment("settings.dupe-protection.warning", "Dupe protection warning settings.");
 
         conf.setComment("settings.recipes", "Recipe settings.");
+
+        conf.setComment("reseau", new String[]{
+                "Codes partagés entre les serveurs Opale reliés par SHNetwork.",
+                "Un code à usage unique ne peut être utilisé qu'une seule fois sur tout le réseau et la limite d'un code est commune.",
+                "Sans SHNetwork sur le serveur, rien ne change : users.yml reste utilisé.",
+                "Les vouchers (items), leur limiteur par joueur et la protection anti-duplication ne sont pas concernés."
+        });
+
+        conf.setComment("reseau.base-de-donnees", "Base partagée par tous les serveurs (tables crazyvouchers_codes et crazyvouchers_code_limits, créées au démarrage).");
     }
 
     @Comment({
@@ -125,4 +134,22 @@ public class ConfigKeys implements SettingsHolder {
             "If you have this set to false, There is no alert.",
     })
     public static final Property<Boolean> prevent_using_vouchers_in_recipes_alert = newProperty("settings.recipes.alert", false);
+
+    @Comment("Active le partage des codes quand SHNetwork est installé sur ce serveur.")
+    public static final Property<Boolean> network_enabled = newProperty("reseau.actif", true);
+
+    @Comment("Adresse JDBC de la base partagée.")
+    public static final Property<String> network_url = newProperty("reseau.base-de-donnees.url", "jdbc:mysql://127.0.0.1:3306/bo_net?useSSL=false&allowPublicKeyRetrieval=true");
+
+    @Comment("Utilisateur de la base.")
+    public static final Property<String> network_user = newProperty("reseau.base-de-donnees.utilisateur", "CHANGE_ME");
+
+    @Comment("Mot de passe de la base.")
+    public static final Property<String> network_password = newProperty("reseau.base-de-donnees.mot-de-passe", "CHANGE_ME");
+
+    @Comment({
+            "Délai maximal de connexion et de réponse de la base, en millisecondes.",
+            "Une base qui ne répond pas fait refuser le code, jamais l'accorder une deuxième fois."
+    })
+    public static final Property<Integer> network_timeout = newProperty("reseau.base-de-donnees.delai-ms", 3000);
 }

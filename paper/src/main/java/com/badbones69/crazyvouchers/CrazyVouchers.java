@@ -10,6 +10,7 @@ import com.badbones69.crazyvouchers.listeners.FireworkDamageListener;
 import com.badbones69.crazyvouchers.listeners.VoucherClickListener;
 import com.badbones69.crazyvouchers.listeners.VoucherCraftListener;
 import com.badbones69.crazyvouchers.listeners.VoucherMiscListener;
+import com.badbones69.crazyvouchers.network.SharedCodes;
 import com.badbones69.crazyvouchers.support.MetricsWrapper;
 import com.ryderbelserion.fusion.core.api.enums.Level;
 import com.ryderbelserion.fusion.files.enums.FileType;
@@ -18,6 +19,7 @@ import com.ryderbelserion.fusion.paper.files.PaperFileManager;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import com.badbones69.crazyvouchers.config.types.ConfigKeys;
 import java.nio.file.Path;
 import java.util.List;
@@ -38,6 +40,8 @@ public class CrazyVouchers extends JavaPlugin {
     private InventoryManager inventoryManager;
 
     private CrazyManager crazyManager;
+
+    private SharedCodes sharedCodes;
 
     private FusionPaper fusion;
     private PaperFileManager fileManager;
@@ -71,6 +75,8 @@ public class CrazyVouchers extends JavaPlugin {
         this.crazyManager = new CrazyManager();
         this.crazyManager.load();
 
+        this.sharedCodes = SharedCodes.create(this);
+
         this.inventoryManager = new InventoryManager();
 
         Methods.janitor();
@@ -88,6 +94,17 @@ public class CrazyVouchers extends JavaPlugin {
         ).forEach(event -> pluginManager.registerEvents(event, this));
 
         this.fusion.log(Level.INFO, "Done (%s)", String.format(Locale.ROOT, "%.3fs", (double) (System.nanoTime() - this.startTime) / 1.0E9D));
+    }
+
+    @Override
+    public void onDisable() {
+        if (this.sharedCodes != null) {
+            this.sharedCodes.close();
+        }
+    }
+
+    public @Nullable final SharedCodes getSharedCodes() {
+        return this.sharedCodes;
     }
 
     public @NotNull final InventoryManager getInventoryManager() {
